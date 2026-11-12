@@ -5,15 +5,16 @@
 #include <fstream>
 #include <vector>
 #include <thread>
+#include <functional>
 #include <mutex>
 
 const unsigned int DIM = 3;
 
 bool ReadMatrix(double (&matrix)[DIM][DIM], std::ifstream &fin);
-bool WriteMatrix(double (&matrix)[DIM][DIM], std::ofstream &fout);
+bool WriteMatrix(const double (&matrix)[DIM][DIM], std::ofstream &fout);
 
-void ComputeColumn(double matA[DIM][DIM], double matB[DIM][DIM], double (&matRes)[DIM][DIM], int column);
-void PrintMatrix(double (&matrix)[DIM][DIM]);
+void ComputeColumn(const double matA[DIM][DIM], const double matB[DIM][DIM], double (&matRes)[DIM][DIM], int column);
+void PrintMatrix(const double (&matrix)[DIM][DIM]);
 
 std::mutex mtx;
 
@@ -45,12 +46,12 @@ int main()
 
 	double matRes[DIM][DIM];
 
-	//std::vector<std::thread> threads;
-	//threads.reserve(DIM); // Each column is computed by a dedicated thread
-	/*
+	std::vector<std::thread> threads;
+	threads.reserve(DIM); // Each column is computed by a dedicated thread
+	
 	// Launching threads
 	for (int i = 0; i < DIM; i++)
-		threads.emplace_back(ComputeColumn, matA, matB, matRes, i);
+		threads.emplace_back(ComputeColumn, std::cref(matA), std::cref(matB), std::ref(matRes), i);
 
 	// Waiting for threads to complete
 	for (auto& th : threads)
@@ -58,20 +59,30 @@ int main()
 		if (th.joinable()) 
 			th.join();
 	}
-	*/
-	//std::thread th1(ComputeColumn, matA, matB, matRes, 1);
-	//std::thread th2(ComputeColumn, matA, matB, matRes, 2);
-	//std::thread th3(ComputeColumn, matA, matB, matRes, 3);
-
-	//th1.join();
-	//th2.join();
-	//th3.join();
-
-	for (int i = 0; i < DIM; i++)
-		ComputeColumn(matA, matB, matRes, i);
-
 
 	PrintMatrix(matRes);
+
+
+	char ch;
+
+	std::cout << std::endl << "Would you like to save the result to out.txt? [y/n]: ";
+	std::cin >> ch;
+
+	if ((ch == 'y') || (ch == 'Y'))
+	{
+		std::ofstream fout("out.txt");
+
+		if (fout.is_open())
+		{
+			if (!WriteMatrix(matRes, fout)) { return 1; }
+			fout.close();
+		}
+		else
+		{
+			std::cerr << std::endl << "Error: Failed to write file" << std::endl;
+			return 1;
+		}
+	}
 
 	return 0;
 }
@@ -95,13 +106,27 @@ bool ReadMatrix(double (&matrix)[DIM][DIM], std::ifstream &fin)
 }
 
 
-bool WriteMatrix(double(&matrix)[DIM][DIM], std::ofstream& fout)
+bool WriteMatrix(const double(&matrix)[DIM][DIM], std::ofstream& fout)
 { 
+	for (int i = 0; i < DIM; i++)
+	{
+		for (int j = 0; j < DIM; j++)
+			fout << matrix[i][j] << " ";
+		fout << std::endl;
+	}
+
+	if (!fout)
+	{
+		std::cerr << std::endl << "Error: Failed to write file" << std::endl;
+		fout.close();
+		return false;
+	}
+
 	return true;
 }
 
 
-void ComputeColumn(double matA[DIM][DIM], double matB[DIM][DIM], double(&matRes)[DIM][DIM], int column)
+void ComputeColumn(const double matA[DIM][DIM], const double matB[DIM][DIM], double(&matRes)[DIM][DIM], int column)
 {
 	for (int i = 0; i < DIM; i++)
 	{
@@ -117,7 +142,7 @@ void ComputeColumn(double matA[DIM][DIM], double matB[DIM][DIM], double(&matRes)
 }
 
 
-void PrintMatrix(double(&matrix)[DIM][DIM])
+void PrintMatrix(const double(&matrix)[DIM][DIM])
 {
 	std::cout << std::endl;
 
